@@ -1,0 +1,36 @@
+{
+  "strategy": "Bottom-Up",
+  "overview": "Single independent Go service with no dependencies, so all work happens in one foundation phase.",
+  "phases": [
+    {
+      "phase": 1,
+      "name": "Foundation Service",
+      "description": "Implement the standalone Todo API service with embedded SQLite persistence.",
+      "components": [
+        {
+          "name": "todo-api",
+          "componentType": "service",
+          "language": "Go",
+          "deployment": "Docker",
+          "responsibilities": [
+            "Expose REST endpoints for listing, creating, and deleting todos",
+            "Persist todos in embedded SQLite storage across restarts",
+            "Provide health check and structured JSON error responses",
+            "Log each request with method, path, status, and duration",
+            "Handle concurrent requests safely with graceful shutdown"
+          ],
+          "architectureContext": "Sole backend service exposed over HTTP/JSON on port 9090; clients call it directly. It owns its embedded SQLite database file and has no upstream/downstream services.",
+          "keyConsiderations": [
+            "Use modernc.org/sqlite (pure Go) to avoid CGo in Docker builds",
+            "Default TODO_DB_PATH to /data/todos.db and ensure directory exists in image",
+            "Serialize DB access or use proper connection settings to avoid SQLite write contention",
+            "Consistent JSON error envelope; never leak internal error details on 500",
+            "Graceful shutdown on SIGTERM; response latency under 500ms"
+          ],
+          "apiContract": "openapi: 3.0.3\ninfo:\n  title: Todo API\n  version: 1.0.0\npaths:\n  /health:\n    get:\n      summary: Health check\n      responses:\n        '200':\n          description: OK\n          content:\n            application/json:\n              schema:\n                type: object\n                properties:\n                  status: {type: string}\n  /todos:\n    get:\n      summary: List todos\n      responses:\n        '200':\n          description: OK\n          content:\n            application/json:\n              schema:\n                type: array\n                items: {$ref: '#/components/schemas/Todo'}\n    post:\n      summary: Create todo\n      requestBody:\n        required: true\n        content:\n          application/json:\n            schema: {$ref: '#/components/schemas/TodoCreate'}\n      responses:\n        '201':\n          description: Created\n          content:\n            application/json:\n              schema: {$ref: '#/components/schemas/Todo'}\n        '400':\n          description: Bad Request\n          content:\n            application/json:\n              schema: {$ref: '#/components/schemas/Error'}\n  /todos/{id}:\n    delete:\n      summary: Delete todo\n      parameters:\n        - in: path\n          name: id\n          required: true\n          schema: {type: string}\n      responses:\n        '204': {description: No Content}\n        '404':\n          description: Not Found\n          content:\n            application/json:\n              schema: {$ref: '#/components/schemas/Error'}\ncomponents:\n  schemas:\n    Todo:\n      type: object\n      properties:\n        id: {type: string}\n        title: {type: string}\n        description: {type: string}\n        completed: {type: boolean}\n        createdAt: {type: string, format: date-time}\n    TodoCreate:\n      type: object\n      required: [title]\n      properties:\n        title: {type: string}\n        description: {type: string}\n    Error:\n      type: object\n      properties:\n        error: {type: string}\n",
+          "dependencies": []
+        }
+      ]
+    }
+  ]
+}
